@@ -14,6 +14,7 @@ library(lubridate)
 library(incidence)
 library(EpiEstim)
 library(ggplot2)
+library(shinythemes)
 
 # source("get_data.R")
 source("constants.R")
@@ -49,26 +50,56 @@ places <- c("BRASIL",
             levels(as.factor(cities$city)))
 
 # Define UI for application that draws a histogram
-ui <- fluidPage(# Application title
-  titlePanel("Covid-19 no Brasil"),
-  
-  # Sidebar with a slider input for number of bins
-  sidebarLayout(
-    sidebarPanel(
-      helpText("Dados nacionais, estaduais e municipais."),
-      selectInput("place",
-                  "Selecione a localidade",
-                  places),
-      width = 3
-    ),
-    mainPanel(
-      column(12,
-      plotOutput("total_cases",
-                 height = "800"),
-      p("Fonte: Secretarias de Saúde das Unidades Federativas.\n
-        Dados tratados por Álvaro Justen e colaboradores/", a("Brasil.IO", href="https://brasil.io/"))
-    ))
-  ))
+ui <- navbarPage ("COVID-19 Brasil",
+                  theme = shinytheme("flatly"),
+                  tabPanel("Dashboard",
+                           fluidPage(
+                             # Application title
+                             sidebarLayout(
+                               sidebarPanel(
+                                 helpText("Dados nacionais, estaduais e municipais."),
+                                 selectInput("place",
+                                             "Selecione a localidade",
+                                             places),
+                                 width = 3
+                               ),
+                               mainPanel(column(
+                                 12,
+                                 plotOutput("total_cases",
+                                            height = "800"),
+                                 p(
+                                   "Fonte: Secretarias de Saúde das Unidades Federativas.\n
+        Dados tratados por Álvaro Justen e colaboradores/",
+                                   a("Brasil.IO", href = "https://brasil.io/")
+                                 )
+                               ))
+                             )
+                           )),
+                  tabPanel(
+                    "Sobre",
+                    p(
+                      "Este projeto é uma visualização rápida e resumida
+                      dos dados das Secretárias de Saúde obtidos através do projeto ",
+                      a("Brasil.IO", href = "https://brasil.io/"),
+                      " e foi realizado
+                      com o objetivo de aprendizado e de obter informações rápidas sobre
+                      a propagação da COVID-19 nos municípios."
+                    ),
+                    
+                    p(
+                      "Incluímos uma estimativa da taxa de reprodução atual de cada localidade,
+                      de modo a dar uma ideia da velocidade de propagação da pandemia, 
+                      sem propósito científico algum. Este último gráfico
+                      só é mostrado caso haja dados suficientes."),
+                    p("Se uma cidade não está listada, significa que não possui casos reportados."),
+                    p(
+                      "O código-fonte utilizado está disponível em ",
+                      a("github.com/samirarman/covid-brasil-dashboard", 
+                        href = "https://github.com/samirarman/covid-brasil-dashboard"),
+                      p("Autor: Samir Arman"),
+                      p("samir.arman@gmail.com")
+                    )
+                  ))
 
 
 # Define server logic required to draw the plots -------
@@ -168,7 +199,7 @@ server <- function(input, output) {
                  layout_matrix = rbind(c(1, 2),
                                        c(3, 4),
                                        c(5, 5)))
-   
+    
     
     # Turn warnings on again
     options(warn = 1)
