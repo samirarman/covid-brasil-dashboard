@@ -15,11 +15,12 @@ library(incidence)
 library(EpiEstim)
 library(ggplot2)
 
-source("get_data.R")
+# source("get_data.R")
 source("constants.R")
 
 # Prepare data -------------
-data <- get_data()
+# data <- get_data()
+data <- readr::read_rds("2020-05-26.rds")
 
 cities <- data %>%
   filter(place_type == "city")
@@ -37,6 +38,10 @@ brazil <- states %>%
   )
 
 rm(data)
+
+
+# Set ggplot option
+ggplot2::theme_set(theme_bw())
 
 # Prepare the selectInput entries -----------------
 places <- c("BRASIL",
@@ -66,7 +71,7 @@ ui <- fluidPage(# Application title
   ))
 
 
-# Define server logic required to draw the plots
+# Define server logic required to draw the plots -------
 server <- function(input, output) {
   output$total_cases <- renderPlot({
     req(input$place)
@@ -163,6 +168,7 @@ server <- function(input, output) {
                  layout_matrix = rbind(c(1, 2),
                                        c(3, 4),
                                        c(5, 5)))
+   
     
     # Turn warnings on again
     options(warn = 1)
