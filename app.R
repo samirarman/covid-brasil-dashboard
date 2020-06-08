@@ -16,12 +16,12 @@ library(EpiEstim)
 library(ggplot2)
 library(shinythemes)
 
-# source("get_data.R")
+source("get_data.R")
 source("constants.R")
 
 # Prepare data -------------
-# data <- get_data()
-data <- readr::read_rds("2020-05-26.rds")
+data <- get_data()
+# data <- readr::read_rds("2020-05-26.rds")
 
 cities <- data %>%
   filter(place_type == "city")
@@ -65,8 +65,12 @@ ui <- navbarPage ("COVID-19 Brasil",
                                ),
                                mainPanel(column(
                                  12,
-                                 plotOutput("total_cases",
-                                            height = "800"),
+                                 textOutput("date"),
+                                 plotOutput("total_cases"),
+                                 plotOutput("new_cases"),
+                                 plotOutput("total_deaths"),
+                                 plotOutput("new_deaths"),
+                                 plotOutput("rt"),
                                  p(
                                    "Fonte: Secretarias de Saúde das Unidades Federativas.\n
         Dados tratados por Álvaro Justen e colaboradores/",
@@ -104,7 +108,8 @@ ui <- navbarPage ("COVID-19 Brasil",
 
 # Define server logic required to draw the plots -------
 server <- function(input, output) {
-  output$total_cases <- renderPlot({
+  get_correct_data <- reactive({
+    
     req(input$place)
     
     df <- brazil
@@ -117,11 +122,16 @@ server <- function(input, output) {
         filter(city == input$place)
     }
     
+    return(df)
+    
+  })
+  
+  get_est_R <- reactive({
     # Disable warnings temporarily
     # because EpiEstim throws a lot of
     # messages and warnings by default.
     options(warn = -1)
-    
+    df <- get_correct_data()
     rt <- NULL
     
     if (length(df$new_confirmed[df$new_confirmed > 1]) > 1) {
@@ -136,8 +146,15 @@ server <- function(input, output) {
         ))
       ))
     }
+    options(warn = 1)
+    return(rt)
+  })
+  
+  output$total_cases <- renderPlot({
     
-    p1 <- ggplot(df, aes(x = date, y = last_available_confirmed)) +
+    df <- get_correct_data()
+    
+    ggplot(df, aes(x = date, y = last_available_confirmed)) +
       geom_col(color = "gray70") +
       geom_smooth(method = "loess",
                   formula = y ~ x,
@@ -148,8 +165,12 @@ server <- function(input, output) {
         labels = function(x)
           format(x, scientific = FALSE)
       )
+  })
+  
+  output$total_deaths <- renderPlot({
+    df <- get_correct_data()
     
-    p2 <- ggplot(df, aes(x = date, y = last_available_deaths)) +
+    ggplot(df, aes(x = date, y = last_available_deaths)) +
       geom_col(color = "gray70") +
       geom_smooth(method = "loess",
                   formula = y ~ x,
@@ -160,8 +181,13 @@ server <- function(input, output) {
         labels = function(x)
           format(x, scientific = FALSE)
       )
+  })
+  
+  output$new_cases <- renderPlot({
     
-    p3 <- ggplot(df, aes(x = date, y = new_confirmed)) +
+    df <- get_correct_data()
+    
+    ggplot(df, aes(x = date, y = new_confirmed)) +
       geom_col(color = "gray70") +
       geom_smooth(method = "loess",
                   formula = y ~ x,
@@ -172,9 +198,11 @@ server <- function(input, output) {
         labels = function(x)
           format(x, scientific = FALSE)
       )
-    
-    
-    p4 <- ggplot(df, aes(x = date, y = new_deaths)) +
+  })
+  
+  output$new_deaths <- renderPlot({
+    df <- get_correct_data()
+    ggplot(df, aes(x = date, y = new_deaths)) +
       geom_col(color = "gray70") +
       geom_smooth(method = "loess",
                   formula = y ~ x,
@@ -185,8 +213,10 @@ server <- function(input, output) {
         labels = function(x)
           format(x, scientific = FALSE)
       )
-    
-    
+  })
+  
+  output$rt <- renderPlot({
+    rt <- get_est_R()
     
     rt_plot <- ggplot() +
       labs("Not enough data for calculating R(t)")
@@ -195,15 +225,20 @@ server <- function(input, output) {
       rt_plot <- estimate_R_plots(rt, what = "R")
     }
     
-    grid.arrange(grobs = list(p1, p2, p3, p4, rt_plot),
-                 layout_matrix = rbind(c(1, 2),
-                                       c(3, 4),
-                                       c(5, 5)))
-    
-    
-    # Turn warnings on again
-    options(warn = 1)
+    return(rt_plot)
   })
+    
+    # grid.arrange(grobs = list(p1, p2, p3, p4, rt_plot),
+    #              layout_matrix = rbind(c(1, 2),
+    #                                    c(3, 4),
+    #                                    c(5, 5)))
+  output$date <- renderText({
+    df <- get_correct_data()
+    paste("Última atualização: ",format(max(df$date), "%d/%m/%Y"), sep = " ")
+  })
+    
+    
+    
 }
 
 # Run the application
