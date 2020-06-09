@@ -21,7 +21,6 @@ source("constants.R")
 
 # Prepare data -------------
 data <- get_data()
-# data <- readr::read_rds("2020-05-26.rds")
 
 cities <- data %>%
   filter(place_type == "city")
