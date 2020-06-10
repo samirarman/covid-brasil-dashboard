@@ -22,11 +22,9 @@ source("constants.R")
 # Prepare data -------------
 data <- get_data()
 
-cities <- data %>%
-  filter(place_type == "city")
+cities <- data$city 
 
-states <- data %>%
-  filter(place_type == "state")
+states <- data$state
 
 brazil <- states %>%
   group_by(date) %>%
@@ -46,8 +44,10 @@ ggplot2::theme_set(theme_bw())
 # Prepare the selectInput entries -----------------
 places <- c(
   "BRASIL",
-  levels(states$state),
-  levels(as.factor(cities$city))
+  levels(states$key),
+  levels(as.factor(cities$key))
+  # levels(states$state),
+  # levels(as.factor(cities$city))
 )
 
 # Define UI for application that draws a histogram
@@ -132,7 +132,7 @@ server <- function(input, output) {
         filter(state == input$place)
     } else if (input$place != "BRASIL") {
       df <- cities %>%
-        filter(city == input$place)
+        filter(key == input$place)
     }
 
     return(df)
