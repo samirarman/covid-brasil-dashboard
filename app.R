@@ -15,6 +15,8 @@ library(incidence)
 library(EpiEstim)
 library(ggplot2)
 library(shinythemes)
+library(xts)
+library(dygraphs)
 
 source("get_data.R")
 source("constants.R")
@@ -22,7 +24,7 @@ source("constants.R")
 # Prepare data -------------
 data <- get_data()
 
-cities <- data$city 
+cities <- data$city
 
 states <- data$state
 
@@ -37,17 +39,11 @@ brazil <- states %>%
 
 rm(data)
 
-
-# Set ggplot option
-ggplot2::theme_set(theme_bw())
-
 # Prepare the selectInput entries -----------------
 places <- c(
   "BRASIL",
   levels(states$key),
   levels(as.factor(cities$key))
-  # levels(states$state),
-  # levels(as.factor(cities$city))
 )
 
 # Define UI for application that draws a histogram
@@ -72,11 +68,11 @@ ui <- navbarPage(
           column(
             12,
             textOutput("date"),
-            plotOutput("total_cases"),
-            plotOutput("new_cases"),
-            plotOutput("total_deaths"),
-            plotOutput("new_deaths"),
-            plotOutput("rt"),
+            dygraphOutput("total_cases"),
+            dygraphOutput("new_cases"),
+            dygraphOutput("total_deaths"),
+            dygraphOutput("new_deaths"),
+            dygraphOutput("rt"),
             p(
               "Fonte: Secretarias de Saúde das Unidades Federativas.\n
         Dados tratados por Álvaro Justen e colaboradores/",
@@ -105,7 +101,7 @@ ui <- navbarPage(
       só é mostrado caso haja dados suficientes."
     ),
     p(
-      "Se uma cidade não está listada, 
+      "Se uma cidade não está listada,
       significa que não possui casos reportados."
     ),
     p(
@@ -135,7 +131,7 @@ server <- function(input, output) {
         filter(key == input$place)
     }
 
-    return(df)
+    df
   })
 
   get_est_R <- reactive({
@@ -150,7 +146,7 @@ server <- function(input, output) {
     rt <- NULL
 
     if (length(df$new_confirmed[df$new_confirmed > 1]) > 1) {
-      
+
       # Default usage of estimate_R generates a message
       # every time it is used, so we silence it.
       rt <- suppressMessages(estimate_R(
@@ -163,104 +159,60 @@ server <- function(input, output) {
       ))
     }
     options(warn = 1)
-    return(rt)
+
+    read.zoo(rt$dates[8:length(rt$dates)] %>%
+      cbind(rt$R %>%
+        select(c(3, 5, 11))))
   })
 
-  output$total_cases <- renderPlot({
+  output$total_cases <- renderDygraph({
     df <- get_correct_data()
+    ts <- xts(df$last_available_confirmed, df$date)
+    names(ts) <- "Total de casos"
 
-    ggplot(df, aes(x = date, y = last_available_confirmed)) +
-      geom_col(color = "gray70") +
-      geom_smooth(
-        method = "loess",
-        formula = y ~ x,
-        size = 0.7
-      ) +
-      ylab("Casos totais") +
-      xlab("Data") +
-      scale_y_continuous(
-        labels = function(x) {
-          format(x, scientific = FALSE)
-        }
-      )
+    dygraph(ts, main = "Total de casos") %>%
+      dyBarChart() %>%
+      dyOptions(colors = "gray", axisLabelFontSize = 12)
   })
 
-  output$total_deaths <- renderPlot({
+  output$total_deaths <- renderDygraph({
     df <- get_correct_data()
+    ts <- xts(df$last_available_deaths, df$date)
+    names(ts) <- "Total de mortes"
 
-    ggplot(df, aes(x = date, y = last_available_deaths)) +
-      geom_col(color = "gray70") +
-      geom_smooth(
-        method = "loess",
-        formula = y ~ x,
-        size = 0.7
-      ) +
-      ylab("Mortos totais") +
-      xlab("Data") +
-      scale_y_continuous(
-        labels = function(x) {
-          format(x, scientific = FALSE)
-        }
-      )
+    dygraph(ts, main = "Total de mortes") %>%
+      dyBarChart() %>%
+      dyOptions(colors = "gray")
   })
 
-  output$new_cases <- renderPlot({
+  output$new_cases <- renderDygraph({
     df <- get_correct_data()
+    ts <- xts(df$new_confirmed, df$date)
+    names(ts) <- "Novos casos"
 
-    ggplot(df, aes(x = date, y = new_confirmed)) +
-      geom_col(color = "gray70") +
-      geom_smooth(
-        method = "loess",
-        formula = y ~ x,
-        size = 0.7
-      ) +
-      ylab("Novos casos") +
-      xlab("Data") +
-      scale_y_continuous(
-        labels = function(x) {
-          format(x, scientific = FALSE)
-        }
-      )
+    dygraph(ts, main = "Novos casos") %>%
+      dyBarChart() %>%
+      dyOptions(colors = "gray")
   })
 
-  output$new_deaths <- renderPlot({
+  output$new_deaths <- renderDygraph({
     df <- get_correct_data()
+    ts <- xts(df$new_deaths, df$date)
+    names(ts) <- "Novas mortes"
 
-    ggplot(df, aes(x = date, y = new_deaths)) +
-      geom_col(color = "gray70") +
-      geom_smooth(
-        method = "loess",
-        formula = y ~ x,
-        size = 0.7
-      ) +
-      ylab("Novas mortes") +
-      xlab("Data") +
-      scale_y_continuous(
-        labels = function(x) {
-          format(x, scientific = FALSE)
-        }
-      )
+    dygraph(ts, main = "Novas mortes") %>%
+      dyBarChart() %>%
+      dyOptions(colors = "gray")
   })
 
-  output$rt <- renderPlot({
-    rt <- get_est_R()
-
-    rt_plot <- ggplot() +
-      labs("Not enough data for calculating R(t)")
-
-    if (!is.null(rt)) {
-      rt_plot <- estimate_R_plots(rt, what = "R")
-    }
-
-    return(rt_plot)
-  })
-
-  output$date <- renderText({
-    df <- get_correct_data()
-    paste("Última atualização: ",
-      format(max(df$date), "%d/%m/%Y"),
-      sep = " "
-    )
+  output$rt <- renderDygraph({
+    need(!is.null(ts), "Sem dados suficientes para calcular 
+         a taxa de reprodução.")
+    ts <- get_est_R()
+    dygraph(ts, main = "Taxa de reprodução") %>%
+      dySeries("Quantile.0.975(R)", color = "gray") %>%
+      dySeries("Mean(R)", color = "red") %>%
+      dySeries("Quantile.0.025(R)", color = "gray")
   })
 }
 
