@@ -168,8 +168,9 @@ server <- function(input, output) {
     ts <- xts(df$last_available_confirmed, df$date)
     names(ts) <- "Total de casos"
 
-    dygraph(ts, main = "Total de casos") %>%
+    dygraph(ts, main = "Total de casos", group = "all") %>%
       dyBarChart() %>%
+      dyRangeSelector() %>%
       dyOptions(colors = "gray", axisLabelFontSize = 12)
   })
 
@@ -178,7 +179,8 @@ server <- function(input, output) {
     ts <- xts(df$last_available_deaths, df$date)
     names(ts) <- "Total de mortes"
 
-    dygraph(ts, main = "Total de mortes") %>%
+    dygraph(ts, main = "Total de mortes", group = "all") %>%
+      dyRangeSelector() %>%
       dyBarChart() %>%
       dyOptions(colors = "gray")
   })
@@ -188,8 +190,9 @@ server <- function(input, output) {
     ts <- xts(df$new_confirmed, df$date)
     names(ts) <- "Novos casos"
 
-    dygraph(ts, main = "Novos casos") %>%
+    dygraph(ts, main = "Novos casos", group = "all") %>%
       dyBarChart() %>%
+      dyRangeSelector() %>%
       dyOptions(colors = "gray")
   })
 
@@ -198,8 +201,9 @@ server <- function(input, output) {
     ts <- xts(df$new_deaths, df$date)
     names(ts) <- "Novas mortes"
 
-    dygraph(ts, main = "Novas mortes") %>%
+    dygraph(ts, main = "Novas mortes", group = "all") %>%
       dyBarChart() %>%
+      dyRangeSelector() %>%
       dyOptions(colors = "gray")
   })
 
@@ -207,10 +211,11 @@ server <- function(input, output) {
     need(!is.null(ts), "Sem dados suficientes para calcular 
          a taxa de reprodução.")
     ts <- get_est_R()
-    dygraph(ts, main = "Taxa de reprodução") %>%
+    dygraph(ts, main = "Taxa de reprodução", group = "all") %>%
       dySeries("Quantile.0.975(R)", color = "gray") %>%
       dySeries("Mean(R)", color = "red") %>%
-      dySeries("Quantile.0.025(R)", color = "gray")
+      dySeries("Quantile.0.025(R)", color = "gray") %>%
+      dyRangeSelector()
   })
 }
 
