@@ -8,14 +8,10 @@
 #
 library(shiny)
 library(dplyr)
-library(gridExtra)
-library(lubridate)
 library(incidence)
 library(EpiEstim)
 library(ggplot2)
 library(shinythemes)
-library(xts)
-library(dygraphs)
 library(plotly)
 
 source("get_data.R")
