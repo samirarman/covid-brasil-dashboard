@@ -34,7 +34,7 @@ brazil <- states %>%
 # Constants -------------------------------------------------------------------
 
 # COVID-19 data from mrc/imperial college
-# can be found here: https://mrc-ide.github.io/covid19-short-term-forecasts/
+# can be found at: https://mrc-ide.github.io/covid19-short-term-forecasts/
 covid_si_mean <- 6.48
 covid_si_sd <- 3.83
 
