@@ -16,6 +16,7 @@ library(ggplot2)
 library(shinythemes)
 library(xts)
 library(dygraphs)
+library(plotly)
 
 source("get_data.R")
 source("constants.R")
@@ -35,52 +36,45 @@ brazil <- states %>%
     new_deaths = sum(new_deaths, na.rm = TRUE)
   )
 
-rm(data)
 
 # Prepare the selectInput entries -----------------
-places <- c(
-  "BRASIL",
-  levels(states$key),
-  levels(as.factor(cities$key))
-)
+places <- c("BRASIL",
+            levels(states$key),
+            levels(as.factor(cities$key)))
 
 # Define UI for application that draws a histogram
 ui <- navbarPage(
   "COVID-19 Brasil",
   theme = shinytheme("flatly"),
-  tabPanel(
-    "Dashboard",
-    fluidPage(
-      # Application title
-      sidebarLayout(
-        sidebarPanel(
-          helpText("Dados nacionais, estaduais e municipais."),
-          selectInput(
-            "place",
-            "Selecione a localidade",
-            places
-          ),
-          width = 3
-        ),
-        mainPanel(
-          column(
-            12,
-            textOutput("date"),
-            dygraphOutput("total_cases"),
-            dygraphOutput("new_cases"),
-            dygraphOutput("total_deaths"),
-            dygraphOutput("new_deaths"),
-            dygraphOutput("rt"),
-            p(
-              "Fonte: Secretarias de Saúde das Unidades Federativas.\n
+  tabPanel("Dashboard",
+           fluidPage(
+             # Application title
+             sidebarLayout(
+               sidebarPanel(
+                 helpText("Dados nacionais, estaduais e municipais."),
+                 selectInput("place",
+                             "Selecione a localidade",
+                             places),
+                 width = 3
+               ),
+               mainPanel(
+                 column(
+                   12,
+                   textOutput("date"),
+                   plotlyOutput("total_cases"),
+                   plotlyOutput("new_cases"),
+                   plotlyOutput("total_deaths"),
+                   plotlyOutput("new_deaths"),
+                   plotlyOutput("rt"),
+                   p(
+                     "Fonte: Secretarias de Saúde das Unidades Federativas.\n
         Dados tratados por Álvaro Justen e colaboradores/",
-              a("Brasil.IO", href = "https://brasil.io/")
-            )
-          )
-        )
-      )
-    )
-  ),
+                     a("Brasil.IO", href = "https://brasil.io/")
+                   )
+                 )
+               )
+             )
+           )),
   tabPanel(
     "Sobre",
     p(
@@ -91,7 +85,7 @@ ui <- navbarPage(
         com o objetivo de aprendizado e de obter informações rápidas sobre
         a propagação da COVID-19 nos municípios."
     ),
-
+    
     p(
       "Incluímos uma estimativa da taxa de reprodução atual de cada localidade,
       de modo a dar uma ideia da velocidade de propagação da pandemia,
@@ -105,8 +99,7 @@ ui <- navbarPage(
     p(
       "O código-fonte utilizado está disponível em ",
       a("github.com/samirarman/covid-brasil-dashboard",
-        href = "https://github.com/samirarman/covid-brasil-dashboard"
-      ),
+        href = "https://github.com/samirarman/covid-brasil-dashboard"),
       p("Autor: Samir Arman"),
       p("samir.arman@gmail.com")
     )
@@ -116,11 +109,12 @@ ui <- navbarPage(
 
 # Define server logic required to draw the plots -------
 server <- function(input, output) {
+  # Make data -----------------------
   get_correct_data <- reactive({
     req(input$place)
-
+    
     df <- brazil
-
+    
     if (nchar(as.character(input$place)) == 2) {
       df <- states %>%
         filter(state == input$place)
@@ -128,23 +122,22 @@ server <- function(input, output) {
       df <- cities %>%
         filter(key == input$place)
     }
-
+    
     df
   })
-
+  
+  # Estimate R ---------------------
   get_est_R <- reactive({
-
     # Disable warnings temporarily
     # because EpiEstim throws a lot of
     # messages and warnings by default.
     options(warn = -1)
-
+    
     df <- get_correct_data()
-
+    
     rt <- NULL
-
+    
     if (length(df$new_confirmed[df$new_confirmed > 1]) > 1) {
-
       # Default usage of estimate_R generates a message
       # every time it is used, so we silence it.
       rt <- suppressMessages(estimate_R(
@@ -157,65 +150,76 @@ server <- function(input, output) {
       ))
     }
     options(warn = 1)
-
-    read.zoo(rt$dates[8:length(rt$dates)] %>%
+    
+    rt$dates[8:length(rt$dates)] %>%
       cbind(rt$R %>%
-        select(c(3, 5, 11))))
+              select(c(5, 8, 11))) %>%
+      rename(
+        date = !!".",
+        quant_025 = !!"Quantile.0.025(R)",
+        median = !!"Median(R)",
+        quant_975 = !!"Quantile.0.975(R)"
+      )
+    
   })
-
-  output$total_cases <- renderDygraph({
-    df <- get_correct_data()
-    ts <- xts(df$last_available_confirmed, df$date)
-    names(ts) <- "Total de casos"
-
-    dygraph(ts, main = "Total de casos", group = "all") %>%
-      dyBarChart() %>%
-      dyRangeSelector() %>%
-      dyOptions(colors = "gray", axisLabelFontSize = 12)
+  
+  # Make plots ------------------
+  make_plot <- function(var, title) {
+    data <- get_correct_data()
+    
+    col <- enquo(var)
+    
+    
+    ggplotly(
+      ggplot(data, aes(x = date, y = !!col)) +
+        geom_col() +
+        geom_smooth(
+          method = "loess",
+          formula = y ~ x,
+          size = 0.5
+        ) +
+        labs(title = title) +
+        ylab("") +
+        xlab("") +
+        theme_bw()
+    )
+  }
+  
+  output$total_cases <- renderPlotly({
+    make_plot(last_available_confirmed, "Total de casos")
   })
-
-  output$total_deaths <- renderDygraph({
-    df <- get_correct_data()
-    ts <- xts(df$last_available_deaths, df$date)
-    names(ts) <- "Total de mortes"
-
-    dygraph(ts, main = "Total de mortes", group = "all") %>%
-      dyRangeSelector() %>%
-      dyBarChart() %>%
-      dyOptions(colors = "gray")
+  
+  output$total_deaths <- renderPlotly({
+    make_plot(last_available_deaths, "Total de óbitos")
   })
-
-  output$new_cases <- renderDygraph({
-    df <- get_correct_data()
-    ts <- xts(df$new_confirmed, df$date)
-    names(ts) <- "Novos casos"
-
-    dygraph(ts, main = "Novos casos", group = "all") %>%
-      dyBarChart() %>%
-      dyRangeSelector() %>%
-      dyOptions(colors = "gray")
+  
+  output$new_cases <- renderPlotly({
+    make_plot(new_confirmed, "Novos casos")
   })
-
-  output$new_deaths <- renderDygraph({
-    df <- get_correct_data()
-    ts <- xts(df$new_deaths, df$date)
-    names(ts) <- "Novas mortes"
-
-    dygraph(ts, main = "Novas mortes", group = "all") %>%
-      dyBarChart() %>%
-      dyRangeSelector() %>%
-      dyOptions(colors = "gray")
+  
+  output$new_deaths <- renderPlotly({
+    make_plot(new_deaths, "Novos óbitos")
   })
-
-  output$rt <- renderDygraph({
-    need(!is.null(ts), "Sem dados suficientes para calcular 
+  
+  output$rt <- renderPlotly({
+    need(!is.null(data),
+         "Sem dados suficientes para calcular
          a taxa de reprodução.")
-    ts <- get_est_R()
-    dygraph(ts, main = "Taxa de reprodução", group = "all") %>%
-      dySeries("Quantile.0.975(R)", color = "gray") %>%
-      dySeries("Mean(R)", color = "red") %>%
-      dySeries("Quantile.0.025(R)", color = "gray") %>%
-      dyRangeSelector()
+    data <- get_est_R()
+    
+    ggplotly(
+      ggplot(data, aes(x = date)) +
+        geom_ribbon(
+          aes(ymin = quant_025, ymax = quant_975),
+          fill = "gray",
+          size = 0.4
+        ) +
+        geom_line(aes(y = median), color = "#3366FF", size = 0.4) +
+        theme_bw() +
+        labs(title = "Taxa de reprodução estimada - R(t)") +
+        xlab("") +
+        ylab("")
+    )
   })
 }
 
