@@ -8,20 +8,15 @@
 #
 library(shiny)
 library(dplyr)
-library(gridExtra)
-library(lubridate)
 library(incidence)
 library(EpiEstim)
 library(ggplot2)
 library(shinythemes)
-library(xts)
-library(dygraphs)
 library(plotly)
 
 source("get_data.R")
-source("constants.R")
 
-# Prepare data -------------
+# Prepare data ----------------------------------------------------------------
 data <- get_data()
 
 cities <- data$city
@@ -36,8 +31,14 @@ brazil <- states %>%
     new_deaths = sum(new_deaths, na.rm = TRUE)
   )
 
+# Constants -------------------------------------------------------------------
 
-# Prepare the selectInput entries -----------------
+# COVID-19 data from mrc/imperial college
+# can be found at: https://mrc-ide.github.io/covid19-short-term-forecasts/
+covid_si_mean <- 6.48
+covid_si_sd <- 3.83
+
+# Prepare the selectInput entries ---------------------------------------------
 places <- c("BRASIL",
             levels(states$key),
             levels(as.factor(cities$key)))
@@ -107,9 +108,9 @@ ui <- navbarPage(
 )
 
 
-# Define server logic required to draw the plots -------
+# Define server logic required to draw the plots ------------------------------
 server <- function(input, output) {
-  # Make data -----------------------
+  # Make data ------------------------------
   get_correct_data <- reactive({
     req(input$place)
     
@@ -126,7 +127,7 @@ server <- function(input, output) {
     df
   })
   
-  # Estimate R ---------------------
+  # Estimate R -----------------------------
   get_est_R <- reactive({
     # Disable warnings temporarily
     # because EpiEstim throws a lot of
@@ -163,7 +164,7 @@ server <- function(input, output) {
     
   })
   
-  # Make plots ------------------
+  # Make plots -----------------------------
   make_plot <- function(var, title) {
     data <- get_correct_data()
     
