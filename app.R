@@ -12,13 +12,14 @@ library(incidence)
 library(EpiEstim)
 library(ggplot2)
 library(shinythemes)
-library(plotly)
+library(dygraphs)
+library(xts)
 
 source("get_data.R")
 
 # Prepare data ----------------------------------------------------------------
 data <- get_data()
-
+# data <- readRDS("sample-data.rds")
 cities <- data$city
 states <- data$state
 
@@ -62,11 +63,11 @@ ui <- navbarPage(
                  column(
                    12,
                    textOutput("date"),
-                   plotlyOutput("total_cases"),
-                   plotlyOutput("new_cases"),
-                   plotlyOutput("total_deaths"),
-                   plotlyOutput("new_deaths"),
-                   plotlyOutput("rt"),
+                   dygraphOutput("total_cases"),
+                   dygraphOutput("new_cases"),
+                   dygraphOutput("total_deaths"),
+                   dygraphOutput("new_deaths"),
+                   dygraphOutput("rt"),
                    p(
                      "Fonte: Secretarias de Saúde das Unidades Federativas.\n
         Dados tratados por Álvaro Justen e colaboradores/",
@@ -111,7 +112,7 @@ ui <- navbarPage(
 # Define server logic required to draw the plots ------------------------------
 server <- function(input, output) {
   # Make data ------------------------------
-  get_correct_data <- reactive({
+  filter_data <- reactive({
     req(input$place)
     
     df <- brazil
@@ -134,7 +135,7 @@ server <- function(input, output) {
     # messages and warnings by default.
     options(warn = -1)
     
-    df <- get_correct_data()
+    df <- filter_data()
     
     rt <- NULL
     
@@ -152,75 +153,64 @@ server <- function(input, output) {
     }
     options(warn = 1)
     
-    rt$dates[8:length(rt$dates)] %>%
-      cbind(rt$R %>%
-              select(c(5, 8, 11))) %>%
-      rename(
-        date = !!".",
-        quant_025 = !!"Quantile.0.025(R)",
-        median = !!"Median(R)",
-        quant_975 = !!"Quantile.0.975(R)"
-      )
-    
+    read.zoo(rt$dates[8:length(rt$dates)] %>%
+               cbind(rt$R %>%
+                       select(c(3, 5, 11))))
   })
   
   # Make plots -----------------------------
   make_plot <- function(var, title) {
-    data <- get_correct_data()
+    data <- filter_data()
     
-    col <- enquo(var)
+    loess_fit <-
+      loess(paste0(var,  " ~ ",  "as.integer(date)"), data = data) %>%
+      predict(data, se = T)
+
+    series <- xts(data[[var]] , data$date)
+    trend <- xts(loess_fit$fit, data$date)
+    upper <- xts(trend + qnorm(0.975) * loess_fit$se.fit, data$date)
+    lower <- xts(trend + qnorm(0.025) * loess_fit$se.fit, data$date)
     
+    chart_data <- cbind(series, trend, upper, lower)
+    names(chart_data) <- c("series", "trend", "upper", "lower")
     
-    ggplotly(
-      ggplot(data, aes(x = date, y = !!col)) +
-        geom_col() +
-        geom_smooth(
-          method = "loess",
-          formula = y ~ x,
-          size = 0.5
-        ) +
-        labs(title = title) +
-        ylab("") +
-        xlab("") +
-        theme_bw()
-    )
+    dygraph(chart_data, main = title, group = "all") %>%
+      dySeries('trend', color = "blue") %>%
+      dySeries('upper', color = "gray80") %>%
+      dySeries('lower', color = "gray80") %>%
+      dySeries('series', stepPlot = T, fillGraph = T, color = "gray") %>%
+      dyRangeSelector()
+    
   }
   
-  output$total_cases <- renderPlotly({
-    make_plot(last_available_confirmed, "Total de casos")
-  })
-  
-  output$total_deaths <- renderPlotly({
-    make_plot(last_available_deaths, "Total de óbitos")
-  })
-  
-  output$new_cases <- renderPlotly({
-    make_plot(new_confirmed, "Novos casos")
-  })
-  
-  output$new_deaths <- renderPlotly({
-    make_plot(new_deaths, "Novos óbitos")
-  })
-  
-  output$rt <- renderPlotly({
-    need(!is.null(data),
-         "Sem dados suficientes para calcular
-         a taxa de reprodução.")
-    data <- get_est_R()
+  output$total_cases <- renderDygraph({
+    make_plot("last_available_confirmed", "Total de casos")
     
-    ggplotly(
-      ggplot(data, aes(x = date)) +
-        geom_ribbon(
-          aes(ymin = quant_025, ymax = quant_975),
-          fill = "gray",
-          size = 0.4
-        ) +
-        geom_line(aes(y = median), color = "#3366FF", size = 0.4) +
-        theme_bw() +
-        labs(title = "Taxa de reprodução estimada - R(t)") +
-        xlab("") +
-        ylab("")
-    )
+  })
+  
+  
+  output$new_cases <- renderDygraph({
+    make_plot("new_confirmed", "Novos casos")
+  })
+  
+  output$total_deaths <- renderDygraph({
+    make_plot("last_available_confirmed", "Total de óbitos")
+  })
+  
+  output$new_deaths <- renderDygraph({
+    make_plot("new_deaths", "Novos óbitos")
+  })
+  
+  output$rt <- renderDygraph({
+    need(!is.null(ts),
+         "Sem dados  suficientes para calcular
+         a taxa de reprodução")
+    ts <- get_est_R()
+    dygraph(ts, main = "Taxa de reprodução", group = "all") %>%
+      dySeries("Quantile.0.975(R)", color = "gray") %>%
+      dySeries("Mean(R)", color = "red") %>%
+      dySeries("Quantile.0.025(R)", color = "gray") %>%
+      dyRangeSelector()
   })
 }
 
