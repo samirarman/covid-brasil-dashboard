@@ -112,7 +112,7 @@ ui <- navbarPage(
 # Define server logic required to draw the plots ------------------------------
 server <- function(input, output) {
   # Make data ------------------------------
-  get_correct_data <- reactive({
+  filter_data <- reactive({
     req(input$place)
     
     df <- brazil
@@ -135,7 +135,7 @@ server <- function(input, output) {
     # messages and warnings by default.
     options(warn = -1)
     
-    df <- get_correct_data()
+    df <- filter_data()
     
     rt <- NULL
     
@@ -160,7 +160,7 @@ server <- function(input, output) {
   
   # Make plots -----------------------------
   make_plot <- function(var, title) {
-    data <- get_correct_data()
+    data <- filter_data()
     
     loess_fit <-
       loess(paste0(var,  " ~ ",  "as.integer(date)"), data = data) %>%
