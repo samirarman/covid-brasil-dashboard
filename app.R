@@ -63,10 +63,20 @@ ui <- navbarPage(
                  column(
                    12,
                    textOutput("date"),
+                   br(),
+                   br(),
                    dygraphOutput("total_cases"),
+                   br(),
+                   br(),
                    dygraphOutput("new_cases"),
+                   br(),
+                   br(),
                    dygraphOutput("total_deaths"),
+                   br(),
+                   br(),
                    dygraphOutput("new_deaths"),
+                   br(),
+                   br(),
                    dygraphOutput("rt"),
                    p(
                      "Fonte: Secretarias de Saúde das Unidades Federativas.\n
@@ -166,7 +176,10 @@ server <- function(input, output) {
       loess(paste0(var,  " ~ ",  "as.integer(date)"), data = data) %>%
       predict(data, se = T)
 
-    series <- xts(data[[var]] , data$date)
+    # Trick to add a new row with series value = 0 in order to 
+    # make the chart look better
+    series <- xts(c(data[[var]],0) , c(brazil$date, brazil$date[length(brazil$date)] + 1))
+    
     trend <- xts(loess_fit$fit, data$date)
     upper <- xts(trend + qnorm(0.975) * loess_fit$se.fit, data$date)
     lower <- xts(trend + qnorm(0.025) * loess_fit$se.fit, data$date)
@@ -179,9 +192,14 @@ server <- function(input, output) {
       dySeries('upper', color = "gray80") %>%
       dySeries('lower', color = "gray80") %>%
       dySeries('series', stepPlot = T, fillGraph = T, color = "gray") %>%
+      dyAxis("y", valueRange = c(-50, NULL)) %>%
       dyRangeSelector()
     
   }
+  
+  output$date <- renderText({
+    paste("Última atualização em: ", max(filter_data()$date) %>% format("%d/%m/%Y"))
+  })
   
   output$total_cases <- renderDygraph({
     make_plot("last_available_confirmed", "Total de casos")
