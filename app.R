@@ -63,6 +63,8 @@ ui <- navbarPage(
                  column(
                    12,
                    textOutput("date"),
+                   br(),
+                   br(),
                    dygraphOutput("total_cases"),
                    br(),
                    br(),
@@ -190,6 +192,7 @@ server <- function(input, output) {
       dySeries('upper', color = "gray80") %>%
       dySeries('lower', color = "gray80") %>%
       dySeries('series', stepPlot = T, fillGraph = T, color = "gray") %>%
+      dyAxis("y", valueRange = c(-50, NULL)) %>%
       dyRangeSelector()
     
   }
