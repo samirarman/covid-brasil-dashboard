@@ -166,7 +166,10 @@ server <- function(input, output) {
       loess(paste0(var,  " ~ ",  "as.integer(date)"), data = data) %>%
       predict(data, se = T)
 
-    series <- xts(data[[var]] , data$date)
+    # Trick to add a new row with series value = 0 in order to 
+    # make the chart look better
+    series <- xts(c(data[[var]],0) , c(brazil$date, brazil$date[length(brazil$date)] + 1))
+    
     trend <- xts(loess_fit$fit, data$date)
     upper <- xts(trend + qnorm(0.975) * loess_fit$se.fit, data$date)
     lower <- xts(trend + qnorm(0.025) * loess_fit$se.fit, data$date)
