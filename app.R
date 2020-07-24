@@ -178,7 +178,7 @@ server <- function(input, output) {
 
     # Trick to add a new row with series value = 0 in order to 
     # make the chart look better
-    series <- xts(c(data[[var]],0) , c(brazil$date, brazil$date[length(brazil$date)] + 1))
+    series <- xts(c(data[[var]],0) , c(data$date, data$date[length(data$date)] + 1))
     
     trend <- xts(loess_fit$fit, data$date)
     upper <- xts(trend + qnorm(0.975) * loess_fit$se.fit, data$date)
@@ -206,13 +206,12 @@ server <- function(input, output) {
     
   })
   
-  
   output$new_cases <- renderDygraph({
     make_plot("new_confirmed", "Novos casos")
   })
   
   output$total_deaths <- renderDygraph({
-    make_plot("last_available_confirmed", "Total de óbitos")
+    make_plot("last_available_deaths", "Total de óbitos")
   })
   
   output$new_deaths <- renderDygraph({
