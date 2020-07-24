@@ -64,9 +64,17 @@ ui <- navbarPage(
                    12,
                    textOutput("date"),
                    dygraphOutput("total_cases"),
+                   br(),
+                   br(),
                    dygraphOutput("new_cases"),
+                   br(),
+                   br(),
                    dygraphOutput("total_deaths"),
+                   br(),
+                   br(),
                    dygraphOutput("new_deaths"),
+                   br(),
+                   br(),
                    dygraphOutput("rt"),
                    p(
                      "Fonte: Secretarias de Saúde das Unidades Federativas.\n
