@@ -197,6 +197,10 @@ server <- function(input, output) {
     
   }
   
+  output$date <- renderText({
+    paste("Última atualização em: ", max(filter_data()$date) %>% format("%d/%m/%Y"))
+  })
+  
   output$total_cases <- renderDygraph({
     make_plot("last_available_confirmed", "Total de casos")
     
